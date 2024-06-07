@@ -2,6 +2,7 @@ package asymmetric
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -23,9 +24,9 @@ type ElGamalPublicKey struct {
 // ElGamalPrivateKey represents an ElGamal private key.
 type ElGamalPrivateKey struct {
 	X *big.Int // Private key
+	P *big.Int // Prime modulus
 }
 
-// GenerateElGamalKeyPair generates a new ElGamal key pair.
 // GenerateElGamalKeyPair generates a new ElGamal key pair.
 func GenerateElGamalKeyPair(bits int) (*ElGamalKeyPair, error) {
 	// Generate a safe prime (p)
@@ -59,6 +60,7 @@ func GenerateElGamalKeyPair(bits int) (*ElGamalKeyPair, error) {
 
 	privateKey := &ElGamalPrivateKey{
 		X: x,
+		P: p,
 	}
 
 	return &ElGamalKeyPair{
@@ -85,30 +87,38 @@ func EncryptElGamal(plainText *big.Int, pub *ElGamalPublicKey) (*big.Int, *big.I
 }
 
 // DecryptElGamal decrypts ciphertext using ElGamal decryption with a given private key.
-func DecryptElGamal(c1, c2 *big.Int, priv *ElGamalPrivateKey, p *big.Int) (*big.Int, error) {
+func DecryptElGamal(c1, c2 *big.Int, priv *ElGamalPrivateKey) (*big.Int, error) {
 	// Compute s = c1^x mod p
-	s := new(big.Int).Exp(c1, priv.X, p)
+	s := new(big.Int).Exp(c1, priv.X, priv.P)
 
 	// Compute plaintext = (c2 * s^-1) mod p
-	sInverse := new(big.Int).ModInverse(s, p)
+	sInverse := new(big.Int).ModInverse(s, priv.P)
 	if sInverse == nil {
 		return nil, fmt.Errorf("failed to compute modular inverse")
 	}
-	plainText := new(big.Int).Mod(new(big.Int).Mul(c2, sInverse), p)
+	plainText := new(big.Int).Mod(new(big.Int).Mul(c2, sInverse), priv.P)
 
 	return plainText, nil
 }
 
-// WriteElGamalKeysToFile writes the ElGamal public and private keys to separate files.
+// WriteElGamalKeysToFile writes the ElGamal public and private keys to separate JSON files.
 func WriteElGamalKeysToFile(keyPair *ElGamalKeyPair, publicKeyFile, privateKeyFile string) error {
-	// Write public key to file
-	err := ioutil.WriteFile(publicKeyFile, []byte(keyPair.PublicKey.String()), 0644)
+	// Encode ElGamal public key to JSON format
+	pubKeyBytes, err := json.Marshal(keyPair.PublicKey)
+	if err != nil {
+		return fmt.Errorf("error encoding public key to JSON: %v", err)
+	}
+	err = ioutil.WriteFile(publicKeyFile, pubKeyBytes, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing public key to file: %v", err)
 	}
 
-	// Write private key to file
-	err = ioutil.WriteFile(privateKeyFile, []byte(keyPair.PrivateKey.String()), 0644)
+	// Encode ElGamal private key to JSON format
+	privKeyBytes, err := json.Marshal(keyPair.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("error encoding private key to JSON: %v", err)
+	}
+	err = ioutil.WriteFile(privateKeyFile, privKeyBytes, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing private key to file: %v", err)
 	}
@@ -116,53 +126,122 @@ func WriteElGamalKeysToFile(keyPair *ElGamalKeyPair, publicKeyFile, privateKeyFi
 	return nil
 }
 
-// String method for ElGamalPublicKey to convert it to string format.
-func (pub *ElGamalPublicKey) String() string {
-	return fmt.Sprintf("P: %s\nG: %s\nY: %s\n", pub.P.String(), pub.G.String(), pub.Y.String())
+// ReadElGamalPrivateKeyFromFile reads the ElGamal private key from a JSON file.
+func ReadElGamalPrivateKeyFromFile(privateKeyFile string) (*ElGamalPrivateKey, error) {
+	// Read private key from file
+	privKeyBytes, err := ioutil.ReadFile(privateKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading private key from file: %v", err)
+	}
+
+	// Decode JSON to ElGamalPrivateKey struct
+	var privateKey ElGamalPrivateKey
+	err = json.Unmarshal(privKeyBytes, &privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding private key from JSON: %v", err)
+	}
+
+	return &privateKey, nil
 }
 
-// String method for ElGamalPrivateKey to convert it to string format.
-func (priv *ElGamalPrivateKey) String() string {
-	return fmt.Sprintf("X: %s\n", priv.X.String())
+func ReadElGamalPublicKeyFromFile(publicKeyFile string) (*ElGamalPublicKey, error) {
+	// Read public key from file
+	pubKeyBytes, err := ioutil.ReadFile(publicKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading public key from file: %v", err)
+	}
+
+	// Decode JSON to ElGamalPublicKey struct
+	var publicKey ElGamalPublicKey
+	err = json.Unmarshal(pubKeyBytes, &publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding public key from JSON: %v", err)
+	}
+
+	return &publicKey, nil
 }
 
-// InitElGamal generates an ElGamal key pair, encrypts and decrypts a message,
-// and writes the keys to separate files.
-func InitElGamal() {
+// ReadStringFromFile reads a string from a file.
+func ReadStringFromFile(filename string) (string, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", fmt.Errorf("error reading input file: %v", err)
+	}
+	fmt.Printf("Read from file: %s\n", data)
+	return string(data), nil
+}
+
+// InitElGamal initializes ElGamal encryption and decryption with file parameters.
+func InitElGamal(messageFile, publicKeyFile, privateKeyFile string) error {
+	// Read message from file
+	message, err := ReadStringFromFile(messageFile)
+	if err != nil {
+		return fmt.Errorf("error reading message from file: %v", err)
+	}
+	fmt.Println("Read from file:", message)
+
 	// Generate ElGamal Key Pair
 	bits := 256 // Change this to desired key size
 	elGamalKeyPair, err := GenerateElGamalKeyPair(bits)
 	if err != nil {
-		fmt.Println("Error generating ElGamal key pair:", err)
-		return
+		return fmt.Errorf("error generating ElGamal key pair: %v", err)
 	}
 
-	// Original message
-	message := new(big.Int).SetInt64(123456)
+	// Convert message to big.Int
+	messageInt := new(big.Int).SetBytes([]byte(message))
 
 	// Encrypt the message using ElGamal
-	c1, c2, err := EncryptElGamal(message, elGamalKeyPair.PublicKey)
+	c1, c2, err := EncryptElGamal(messageInt, elGamalKeyPair.PublicKey)
 	if err != nil {
-		fmt.Println("Error encrypting with ElGamal:", err)
-		return
+		return fmt.Errorf("error encrypting with ElGamal: %v", err)
 	}
 
 	// Decrypt the ciphertext using ElGamal
-	decryptedMessage, err := DecryptElGamal(c1, c2, elGamalKeyPair.PrivateKey, elGamalKeyPair.PublicKey.P)
+	decryptedMessage, err := DecryptElGamal(c1, c2, elGamalKeyPair.PrivateKey)
 	if err != nil {
-		fmt.Println("Error decrypting with ElGamal:", err)
-		return
+		return fmt.Errorf("error decrypting with ElGamal: %v", err)
 	}
-
-	fmt.Println("Original message:", message)
-	fmt.Println("Decrypted message:", decryptedMessage)
 
 	// Write keys to files
-	err = WriteElGamalKeysToFile(elGamalKeyPair, "ElgamalpublicKey", "ElgamalprivateKey")
+	err = WriteElGamalKeysToFile(elGamalKeyPair, publicKeyFile, privateKeyFile)
 	if err != nil {
-		fmt.Println("Error writing ElGamal keys to files:", err)
-		return
+		return fmt.Errorf("error writing ElGamal keys to files: %v", err)
 	}
 
-	fmt.Println("ElGamal keys written to files: publicKey.json, privateKey.json")
+	// Print original and decrypted messages
+	fmt.Println("Original message:", message)
+	fmt.Println("Encrypted message (c1):", c1)
+	fmt.Println("Encrypted message (c2):", c2)
+	fmt.Println("Decrypted message:", string(decryptedMessage.Bytes()))
+
+	return nil
+}
+
+func DecryptMessageWithPrivateKey(c1, c2, privateKeyFile string) error {
+	// Read private key from file
+	privateKey, err := ReadElGamalPrivateKeyFromFile(privateKeyFile)
+	if err != nil {
+		return fmt.Errorf("error reading private key from file: %v", err)
+	}
+
+	// Convert c1 and c2 to big.Int
+	c1Int, ok := new(big.Int).SetString(c1, 10)
+	if !ok {
+		return fmt.Errorf("invalid value for c1")
+	}
+	c2Int, ok := new(big.Int).SetString(c2, 10)
+	if !ok {
+		return fmt.Errorf("invalid value for c2")
+	}
+
+	// Decrypt the ciphertext using ElGamal
+	decryptedMessage, err := DecryptElGamal(c1Int, c2Int, privateKey)
+	if err != nil {
+		return fmt.Errorf("error decrypting with ElGamal: %v", err)
+	}
+
+	// Print decrypted message
+	fmt.Println("Decrypted message:", string(decryptedMessage.Bytes()))
+
+	return nil
 }

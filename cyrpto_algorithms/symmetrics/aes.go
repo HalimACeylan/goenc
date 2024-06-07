@@ -1,4 +1,4 @@
-package symmetrics
+package symmetric
 
 import (
 	"crypto/aes"
@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 )
 
@@ -72,45 +71,6 @@ func DecryptAES(key []byte, encodedCiphertext string) (string, error) {
 	return string(plaintext), nil
 }
 
-// WriteKeyToFile writes the AES key to a file.
-func WriteKeyToFile(key []byte, filename string) error {
-	return ioutil.WriteFile(filename, key, 0644)
-}
-
-// ReadKeyFromFile reads the AES key from a file.
-func ReadKeyFromFile(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
-}
-
-// EncryptFile encrypts a file and writes the ciphertext to another file.
-func EncryptFile(key []byte, inputFile, outputFile string) error {
-	plaintext, err := ioutil.ReadFile(inputFile)
-	if err != nil {
-		return err
-	}
-
-	ciphertext, err := EncryptAES(key, plaintext)
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(outputFile, []byte(ciphertext), 0644)
-}
-
-// DecryptFile decrypts a file and writes the plaintext to another file.
-func DecryptFile(key []byte, inputFile, outputFile string) error {
-	ciphertext, err := ioutil.ReadFile(inputFile)
-	if err != nil {
-		return err
-	}
-
-	plaintext, err := DecryptAES(key, string(ciphertext))
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(outputFile, []byte(plaintext), 0644)
-}
 func InitAES(messageFile, KeyFile string) {
 	// Generate a new AES key
 	key, err := GenerateAESKey(32) // 256-bit key
