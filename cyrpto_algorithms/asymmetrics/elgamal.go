@@ -100,7 +100,6 @@ func DecryptElGamal(c1, c2 *big.Int, priv *ElGamalPrivateKey, p *big.Int) (*big.
 }
 
 // WriteElGamalKeysToFile writes the ElGamal public and private keys to separate files.
-// WriteElGamalKeysToFile writes the ElGamal public and private keys to separate files.
 func WriteElGamalKeysToFile(keyPair *ElGamalKeyPair, publicKeyFile, privateKeyFile string) error {
 	// Write public key to file
 	err := ioutil.WriteFile(publicKeyFile, []byte(keyPair.PublicKey.String()), 0644)
