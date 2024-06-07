@@ -2,7 +2,6 @@ package asymmetric
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -27,13 +26,21 @@ type ElGamalPrivateKey struct {
 }
 
 // GenerateElGamalKeyPair generates a new ElGamal key pair.
+// GenerateElGamalKeyPair generates a new ElGamal key pair.
 func GenerateElGamalKeyPair(bits int) (*ElGamalKeyPair, error) {
-	// Generate a safe prime (p) and a generator (g)
+	// Generate a safe prime (p)
 	p, err := rand.Prime(rand.Reader, bits)
 	if err != nil {
 		return nil, err
 	}
-	g := new(big.Int).Add(new(big.Int).SetInt64(2), new(big.Int).Rand(rand.Reader, new(big.Int).Sub(p, new(big.Int).SetInt64(2)))))
+
+	// Compute generator (g)
+	pMinusThree := new(big.Int).Sub(p, big.NewInt(3))
+	g, err := rand.Int(rand.Reader, pMinusThree)
+	if err != nil {
+		return nil, err
+	}
+	g.Add(g, big.NewInt(2)) // g = g + 2
 
 	// Generate a private key (x)
 	x, err := rand.Int(rand.Reader, p)
@@ -93,31 +100,31 @@ func DecryptElGamal(c1, c2 *big.Int, priv *ElGamalPrivateKey, p *big.Int) (*big.
 }
 
 // WriteElGamalKeysToFile writes the ElGamal public and private keys to separate files.
+// WriteElGamalKeysToFile writes the ElGamal public and private keys to separate files.
 func WriteElGamalKeysToFile(keyPair *ElGamalKeyPair, publicKeyFile, privateKeyFile string) error {
-	// Convert keys to JSON format
-	publicKeyJSON, err := json.MarshalIndent(keyPair.PublicKey, "", "    ")
-	if err != nil {
-		return fmt.Errorf("error encoding public key to JSON: %v", err)
-	}
-
-	privateKeyJSON, err := json.MarshalIndent(keyPair.PrivateKey, "", "    ")
-	if err != nil {
-		return fmt.Errorf("error encoding private key to JSON: %v", err)
-	}
-
 	// Write public key to file
-	err = ioutil.WriteFile(publicKeyFile, publicKeyJSON, 0644)
+	err := ioutil.WriteFile(publicKeyFile, []byte(keyPair.PublicKey.String()), 0644)
 	if err != nil {
 		return fmt.Errorf("error writing public key to file: %v", err)
 	}
 
 	// Write private key to file
-	err = ioutil.WriteFile(privateKeyFile, privateKeyJSON, 0644)
+	err = ioutil.WriteFile(privateKeyFile, []byte(keyPair.PrivateKey.String()), 0644)
 	if err != nil {
 		return fmt.Errorf("error writing private key to file: %v", err)
 	}
 
 	return nil
+}
+
+// String method for ElGamalPublicKey to convert it to string format.
+func (pub *ElGamalPublicKey) String() string {
+	return fmt.Sprintf("P: %s\nG: %s\nY: %s\n", pub.P.String(), pub.G.String(), pub.Y.String())
+}
+
+// String method for ElGamalPrivateKey to convert it to string format.
+func (priv *ElGamalPrivateKey) String() string {
+	return fmt.Sprintf("X: %s\n", priv.X.String())
 }
 
 // InitElGamal generates an ElGamal key pair, encrypts and decrypts a message,
@@ -152,7 +159,7 @@ func InitElGamal() {
 	fmt.Println("Decrypted message:", decryptedMessage)
 
 	// Write keys to files
-	err = WriteElGamalKeysToFile(elGamalKeyPair, "publicKey.json", "privateKey.json")
+	err = WriteElGamalKeysToFile(elGamalKeyPair, "ElgamalpublicKey", "ElgamalprivateKey")
 	if err != nil {
 		fmt.Println("Error writing ElGamal keys to files:", err)
 		return
