@@ -66,13 +66,19 @@ func DecryptBlowfish(key []byte, encodedCiphertext string) (string, error) {
 }
 
 // WriteKeyToFile writes the Blowfish key to a file.
-func WriteKeyToFile(key []byte, filename string) error {
-	return ioutil.WriteFile(filename, key, 0644)
+func BFWriteKeyToFile(key []byte, filename string) error {
+	encodedKey := base64.StdEncoding.EncodeToString(key)
+	return ioutil.WriteFile(filename, []byte(encodedKey), 0644)
 }
 
 // ReadKeyFromFile reads the Blowfish key from a file.
-func ReadKeyFromFile(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
+func BFReadKeyFromFile(filename string) ([]byte, error) {
+	encodedKey, err := ioutil.ReadFile(filename)
+	decoded, err := base64.StdEncoding.DecodeString(string(encodedKey))
+	if err != nil {
+		return nil, fmt.Errorf("error decoding AES key from base64: %v", err)
+	}
+	return []byte(decoded), nil
 }
 
 // EncryptFile encrypts a file and writes the ciphertext to another file.
@@ -113,14 +119,14 @@ func InitBlowfish(messageFile, keyFile, encryptedFile, decryptedFile string) {
 	}
 
 	// Save the key to a file
-	err = WriteKeyToFile(key, keyFile)
+	err = BFWriteKeyToFile(key, keyFile)
 	if err != nil {
 		fmt.Println("Error writing Blowfish key to file:", err)
 		return
 	}
 
 	// Read the key from the file
-	key, err = ReadKeyFromFile(keyFile)
+	key, err = BFReadKeyFromFile(keyFile)
 	if err != nil {
 		fmt.Println("Error reading Blowfish key from file:", err)
 		return
@@ -164,4 +170,60 @@ func InitBlowfish(messageFile, keyFile, encryptedFile, decryptedFile string) {
 	}
 
 	fmt.Println("File encryption and decryption complete")
+}
+func GenerateBlowfishKeyFiles() error {
+	key, err := GenerateBlowfishKey(16)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Blowfish key (base64):", base64.StdEncoding.EncodeToString(key))
+	err = BFWriteKeyToFile(key, "Blowfish_key.txt")
+	if err != nil {
+		return err
+	}
+	fmt.Println("Blowfish key generation complete")
+	return nil
+}
+func EncryptFileBlowfish(inputFile, keyFile string) error {
+	key, err := BFReadKeyFromFile(keyFile)
+	if err != nil {
+		fmt.Printf("error reading Blowfish key from file: %v", err)
+	}
+
+	plaintext, err := ioutil.ReadFile(inputFile)
+	if err != nil {
+		return fmt.Errorf("error reading message from file: %v", err)
+	}
+
+	ciphertext, err := EncryptBlowfish(key, plaintext)
+	if err != nil {
+		return fmt.Errorf("error encrypting message: %v", err)
+	}
+
+	err = ioutil.WriteFile("Blowfish_encrypted_message.txt", []byte(ciphertext), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing encrypted message to file: %v", err)
+	}
+
+	return nil
+}
+func DecryptFileBlowfish(inputFile, keyFile string) error {
+	key, err := BFReadKeyFromFile(keyFile)
+	if err != nil {
+		fmt.Printf("error reading Blowfish key from file: %v", err)
+	}
+
+	ciphertext, err := ioutil.ReadFile(inputFile)
+	if err != nil {
+		return fmt.Errorf("error reading message from file: %v", err)
+	}
+
+	plaintext, err := DecryptBlowfish(key, string(ciphertext))
+	if err != nil {
+		return fmt.Errorf("error decrypting message: %v", err)
+	}
+
+	fmt.Printf("Decrypted message: %s\n", plaintext)
+
+	return nil
 }
