@@ -7,97 +7,22 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 )
 
-// RSAKeyPair represents an RSA key pair.
-type RSAKeyPair struct {
-	PublicKey  *RSAPublicKey
-	PrivateKey *RSAPrivateKey
-}
-
-// RSAPublicKey represents an RSA public key.
-type RSAPublicKey struct {
-	N *big.Int // Modulus
-	E *big.Int // Public exponent
-}
-
-// RSAPrivateKey represents an RSA private key.
-type RSAPrivateKey struct {
-	N *big.Int // Modulus
-	D *big.Int // Private exponent
-}
-
 // GenerateRSAKeyPair generates a new RSA key pair.
-func GenerateRSAKeyPair(bits int) (*RSAKeyPair, error) {
+func GenerateRSAKeyPair() (*rsa.PrivateKey, error) {
+	bits := 2048
 	key, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
 		return nil, err
 	}
-
-	publicKey := &RSAPublicKey{
-		N: key.N,
-		E: big.NewInt(65537),
-	}
-
-	privateKey := &RSAPrivateKey{
-		N: key.N,
-		D: key.D,
-	}
-
-	return &RSAKeyPair{
-		PublicKey:  publicKey,
-		PrivateKey: privateKey,
-	}, nil
-}
-
-func EncryptRSA(plainText []byte, pub *RSAPublicKey) ([]byte, error) {
-	cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, pubKeyToRSA(pub), plainText)
-	if err != nil {
-		return nil, err
-	}
-	return cipherText, nil
-}
-
-// DecryptRSA decrypts ciphertext using RSA decryption with a given private key.
-func DecryptRSA(cipherText []byte, keyPair *RSAKeyPair) ([]byte, error) {
-	plainText, err := rsa.DecryptPKCS1v15(rand.Reader, privKeyToRSA(keyPair), cipherText)
-	if err != nil {
-		return nil, err
-	}
-	return plainText, nil
-}
-
-// Helper function to convert RSAPublicKey to *rsa.PublicKey
-func pubKeyToRSA(pub *RSAPublicKey) *rsa.PublicKey {
-	return &rsa.PublicKey{
-		N: pub.N,
-		E: int(pub.E.Int64()),
-	}
-}
-
-// Helper function to convert RSAPrivateKey to *rsa.PrivateKey
-func privKeyToRSA(keypair *RSAKeyPair) *rsa.PrivateKey {
-	return &rsa.PrivateKey{
-		PublicKey: rsa.PublicKey{
-			N: keypair.PublicKey.N,
-			E: 65537, // Set the public exponent to a fixed value
-		},
-		D: keypair.PrivateKey.D,
-		Primes: []*big.Int{
-			new(big.Int).Set(keypair.PublicKey.N), // Use the modulus of the public key
-			new(big.Int).Set(keypair.PrivateKey.D),
-		},
-	}
+	return key, nil
 }
 
 // WriteRSAKeysToFile writes the RSA public and private keys to separate files.
-func WriteRSAKeysToFile(keyPair *RSAKeyPair, publicKeyFile, privateKeyFile string) error {
-	// Write public key to file
-	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&rsa.PublicKey{
-		N: keyPair.PublicKey.N,
-		E: int(keyPair.PublicKey.E.Int64()),
-	})
+func WriteRSAKeysToFile(privateKey *rsa.PrivateKey, publicKeyFile, privateKeyFile string) error {
+	// Write public key to file.
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	if err != nil {
 		return err
 	}
@@ -107,72 +32,128 @@ func WriteRSAKeysToFile(keyPair *RSAKeyPair, publicKeyFile, privateKeyFile strin
 	}
 	err = ioutil.WriteFile(publicKeyFile, pem.EncodeToMemory(publicKeyBlock), 0644)
 	if err != nil {
-		return fmt.Errorf("error writing public key to file: %v", err)
+		fmt.Printf("error writing public key to file: %v", err)
 	}
 
-	// Write private key to file
-	privateKeyBytes := x509.MarshalPKCS1PrivateKey(&rsa.PrivateKey{
-		PublicKey: rsa.PublicKey{
-			N: keyPair.PublicKey.N,
-			E: int(keyPair.PublicKey.E.Int64()),
-		},
-		D: keyPair.PrivateKey.D,
-		Primes: []*big.Int{
-			new(big.Int).Set(keyPair.PrivateKey.N),
-			new(big.Int).Set(keyPair.PrivateKey.D),
-		},
-	})
+	// Write private key to file.
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
 	privateKeyBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: privateKeyBytes,
 	}
 	err = ioutil.WriteFile(privateKeyFile, pem.EncodeToMemory(privateKeyBlock), 0644)
 	if err != nil {
-		return fmt.Errorf("error writing private key to file: %v", err)
+		fmt.Printf("error writing private key to file: %v", err)
 	}
 
 	return nil
 }
 
-// InitRSA generates an RSA key pair, encrypts and decrypts a message,
-// and writes the keys to separate files.
-func InitRSA() {
-	// Generate RSA Key Pair
-	bits := 2048 // Change this to desired key size
-	rsaKeyPair, err := GenerateRSAKeyPair(bits)
+// ReadPrivateKeyFromFile reads an RSA private key from a PEM file.
+func ReadPrivateKeyFromFile(filename string) (*rsa.PrivateKey, error) {
+	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		fmt.Println("Error generating RSA key pair:", err)
-		return
+		return nil, fmt.Errorf("error reading private key file: %v", err)
 	}
 
-	// Original message
-	originalMessage := []byte("Hello, RSA!")
-
-	// Encrypt the message using RSA
-	cipherText, err := EncryptRSA(originalMessage, rsaKeyPair.PublicKey)
-	if err != nil {
-		fmt.Println("Error encrypting message:", err)
-		return
+	block, _ := pem.Decode(data)
+	if block == nil || block.Type != "RSA PRIVATE KEY" {
+		return nil, fmt.Errorf("failed to decode PEM block containing private key")
 	}
 
-	// Decrypt the ciphertext using RSA
-	decryptedMessage, err := DecryptRSA(cipherText, rsaKeyPair)
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		fmt.Println("Error decrypting message:", err)
-		return
+		return nil, fmt.Errorf("failed to parse DER encoded private key: %v", err)
 	}
 
-	// Print original, encrypted, and decrypted messages
-	fmt.Println("Original message:", string(originalMessage))
-	fmt.Println("Encrypted message:", string(cipherText))
-	fmt.Println("Decrypted message:", string(decryptedMessage))
+	return privateKey, nil
+}
 
-	// Write keys to files
-	err = WriteRSAKeysToFile(rsaKeyPair, "RSAPublicKey.pem", "RSAPrivateKey.pem")
+// ReadPublicKeyFromFile reads an RSA public key from a PEM file.
+func ReadPublicKeyFromFile(filename string) (*rsa.PublicKey, error) {
+	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		fmt.Println("Error writing RSA keys to files:", err)
-		return
+		return nil, fmt.Errorf("error reading public key file: %v", err)
 	}
 
-	fmt.Println("RSA keys written to files: RSAPublicKey.pem, RSAPrivateKey.pem")
+	block, _ := pem.Decode(data)
+	if block == nil || block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("failed to decode PEM block containing public key")
+	}
+
+	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse DER encoded public key: %v", err)
+	}
+
+	rsaPubKey, ok := publicKey.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("not RSA public key")
+	}
+
+	return rsaPubKey, nil
+}
+
+// EncryptFileRSA encrypts the contents of a file using RSA.
+func EncryptFileRSA(inputFile, keyFile string) error {
+	// Read plaintext from file
+	plainText, err := ioutil.ReadFile(inputFile)
+	if err != nil {
+		fmt.Printf("error reading input file: %v", err)
+	}
+
+	// Read RSA public key from file
+	publicKey, err := ReadPublicKeyFromFile(keyFile)
+	if err != nil {
+		fmt.Printf("error reading public key file: %v", err)
+	}
+
+	// Encrypt plaintext using RSA
+	cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, publicKey, plainText)
+	if err != nil {
+		fmt.Printf("error encrypting data: %v", err)
+	}
+
+	// Write ciphertext to file
+	err = ioutil.WriteFile("RSA_encrypted_message.txt", cipherText, 0644)
+	if err != nil {
+		fmt.Printf("error writing encrypted data to file: %v", err)
+	}
+
+	return nil
+}
+
+// DecryptFileRSA decrypts the contents of a file using RSA.
+func DecryptFileRSA(inputFile, keyFile string) error {
+	// Read ciphertext from file
+	cipherText, err := ioutil.ReadFile(inputFile)
+	if err != nil {
+		fmt.Printf("error reading input file: %v", err)
+	}
+
+	// Read RSA private key from file
+	privateKey, err := ReadPrivateKeyFromFile(keyFile)
+	if err != nil {
+		fmt.Printf("error reading private key file: %v", err)
+	}
+
+	// Decrypt ciphertext using RSA
+	plainText, err := rsa.DecryptPKCS1v15(rand.Reader, privateKey, cipherText)
+	if err != nil {
+		fmt.Printf("error decrypting data: %v", err)
+	}
+
+	fmt.Printf("Decrypted message: %s\n", plainText)
+
+	return nil
+}
+func GenerateRSAKeyPairFiles() error {
+	// Generate RSA key pair
+	keyPair, err := GenerateRSAKeyPair()
+	if err != nil {
+		fmt.Printf("error generating RSA key pair: %v", err)
+		return err
+	}
+	WriteRSAKeysToFile(keyPair, "RSA_public_key.pem", "RSA_private_key.pem")
+	return nil
 }

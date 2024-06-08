@@ -133,6 +133,15 @@ func ReadElGamalEncryptedMessageFromFile(messageFile string) (*big.Int, *big.Int
 	return c1, c2, nil
 }
 
+// ReadStringFromFile reads a string from a file.
+func ReadStringFromFile(filename string) (string, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", fmt.Errorf("error reading input file: %v", err)
+	}
+	return string(data), nil
+}
+
 // WriteElGamalKeysToFile writes the ElGamal public and private keys to separate JSON files.
 func WriteElGamalKeysToFile(keyPair *ElGamalKeyPair, publicKeyFile, privateKeyFile string) error {
 	// Encode ElGamal public key to JSON format

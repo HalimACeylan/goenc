@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+
+	asymmetric "github.com/HalimACeylan/goenc/cyrpto_algorithms/asymmetrics"
 )
 
 func main() {
@@ -14,49 +16,50 @@ func main() {
 	operation := flag.String("operation", "", "Choose operation: encrypt, decrypt, generate")
 	key := flag.String("key", "", "Key file path")
 	file := flag.String("f", "", "File path")
+	signature := flag.String("sig", "", "Signature file path")
 	message := flag.String("m", "", "Input message")
 	flag.Parse()
 
 	// Check which algorithm is chosen
 	if *asymmetric {
-		handleAsymmetric(*algo, *operation, *key, *file, *message)
+		handleAsymmetric(*algo, *operation, *key, *file, *message, *signature)
 	} else if *symmetric {
-		handleSymmetric(*algo, *operation, *key, *file, *message)
+		handleSymmetric(*algo, *operation, *key, *file, *message, *signature)
 	} else if *hash {
-		handleHash(*algo, *operation, *file, *message)
+		handleHash(*algo, *operation, *file, *message, *signature)
 	} else {
 		fmt.Println("Please choose an algorithm category: asymmetric, symmetric, or hash")
 	}
 }
 
-func handleAsymmetric(algo, operation, key, file, message string) {
+func handleAsymmetric(algo, operation, key, file, message, signature string) {
 	switch algo {
 	case "ecc", "rsa", "elgamal":
-		performOperation("asymmetric", algo, operation, key, file, message)
+		performOperation("asymmetric", algo, operation, key, file, message, signature)
 	default:
 		fmt.Println("Invalid asymmetric algorithm. Please choose ecc, rsa, or elgamal")
 	}
 }
 
-func handleSymmetric(algo, operation, key, file, message string) {
+func handleSymmetric(algo, operation, key, file, message, signature string) {
 	switch algo {
 	case "aes", "blowfish":
-		performOperation("symmetric", algo, operation, key, file, message)
+		performOperation("symmetric", algo, operation, key, file, message, signature)
 	default:
 		fmt.Println("Invalid symmetric algorithm. Please choose aes or blowfish")
 	}
 }
 
-func handleHash(algo, operation, file, message string) {
+func handleHash(algo, operation, file, message, signature string) {
 	switch algo {
 	case "md5", "sha1", "sha256", "sha512", "hex":
-		performOperation("hash", algo, operation, "", file, message)
+		performOperation("hash", algo, operation, "", file, message, signature)
 	default:
 		fmt.Println("Invalid hashing algorithm. Please choose md5, sha1, sha256, sha512, or hex")
 	}
 }
 
-func performOperation(algorithmType, algo, operation, key, file, message string) {
+func performOperation(algorithmType, algo, operation, key, file, message, signature string) {
 	if operation == "" {
 		fmt.Println("Please specify an operation: encrypt, decrypt, or generate")
 		return
@@ -78,7 +81,15 @@ func performOperation(algorithmType, algo, operation, key, file, message string)
 			} else {
 				fmt.Println("Message to encrypt:", message)
 			}
-			// Call your encryption function here
+			if algo == "ecc" {
+				asymmetric.ECCsignWithPrivateKey(file, key)
+			} else if algo == "elgamal" {
+				asymmetric.ElgamalEncryptMessageFromPublicKey(file, key)
+			} else if algo == "rsa" {
+				asymmetric.EncryptFileRSA(file, key)
+			} else {
+				fmt.Println("Invalid algorithm. Please choose ecc, rsa, or elgamal")
+			}
 		} else {
 			fmt.Println("Please provide input file or message for encryption")
 		}
@@ -92,13 +103,29 @@ func performOperation(algorithmType, algo, operation, key, file, message string)
 			} else {
 				fmt.Println("Message to decrypt:", message)
 			}
-			// Call your decryption function here
+			if (algo == "ecc") && (signature != "") {
+				asymmetric.ECCverifyWithPublicKey(file, key, signature)
+			} else if algo == "elgamal" {
+				asymmetric.ElgamalDecryptMessageWithPrivateKey(file, key)
+			} else if algo == "rsa" {
+				asymmetric.DecryptFileRSA(file, key)
+			} else {
+				fmt.Println("Invalid algorithm. Please choose ecc, rsa, or elgamal")
+			}
 		} else {
 			fmt.Println("Please provide input file or message for decryption")
 		}
 	case "generate":
 		fmt.Println("Generating keys for", algo, "algorithm")
-		// Call your key generation function here
+		if algo == "ecc" {
+			asymmetric.ECCgenerateKeys()
+		} else if algo == "elgamal" {
+			asymmetric.ElgamalGenerateKeys()
+		} else if algo == "rsa" {
+			asymmetric.GenerateRSAKeyPairFiles()
+		} else {
+			fmt.Println("Invalid algorithm. Please choose ecc, rsa, or elgamal")
+		}
 	default:
 		fmt.Println("Invalid operation. Please choose encrypt, decrypt, or generate")
 	}
