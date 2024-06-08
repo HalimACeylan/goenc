@@ -43,12 +43,14 @@ func WriteECCKeysToFile(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey
 	if err := ioutil.WriteFile(privateKeyFile, pem.EncodeToMemory(privateKeyBlock), 0644); err != nil {
 		return fmt.Errorf("error writing private key to file: %v", err)
 	}
+	fmt.Printf("here is the private key: %v\n", string(privateKeyBytes))
 
 	// Write public key to file
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("here is the public key: %v\n", string(publicKeyBytes))
 	publicKeyBlock := &pem.Block{
 		Type:  "PUBLIC KEY",
 		Bytes: publicKeyBytes,
@@ -60,8 +62,52 @@ func WriteECCKeysToFile(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey
 	return nil
 }
 
-func InitECC(messageFile, publicKeyFile, privateKeyFile, signatureFile string) {
-	// Generate ECC key pair
+// ReadECCPrivateKeyFromFile reads the ECC private key from a PEM file.
+func ReadECCPrivateKeyFromFile(privateKeyFile string) (*ecdsa.PrivateKey, error) {
+	privateKeyBytes, err := ioutil.ReadFile(privateKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading private key file: %v", err)
+	}
+
+	block, _ := pem.Decode(privateKeyBytes)
+	if block == nil || block.Type != "EC PRIVATE KEY" {
+		return nil, fmt.Errorf("failed to decode PEM block containing private key")
+	}
+
+	privateKey, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing private key: %v", err)
+	}
+
+	return privateKey, nil
+}
+
+// ReadECCPublicKeyFromFile reads the ECC public key from a PEM file.
+func ReadECCPublicKeyFromFile(publicKeyFile string) (*ecdsa.PublicKey, error) {
+	publicKeyBytes, err := ioutil.ReadFile(publicKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading public key file: %v", err)
+	}
+
+	block, _ := pem.Decode(publicKeyBytes)
+	if block == nil || block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("failed to decode PEM block containing public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing public key: %v", err)
+	}
+
+	publicKey, ok := pub.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("not an ECDSA public key")
+	}
+
+	return publicKey, nil
+}
+
+func ECCgenerateKeys() {
 	privateKey, err := GenerateECCKeyPair()
 	if err != nil {
 		fmt.Println("Error generating ECC key pair:", err)
@@ -70,16 +116,21 @@ func InitECC(messageFile, publicKeyFile, privateKeyFile, signatureFile string) {
 	publicKey := &privateKey.PublicKey
 
 	// Write keys to files
-	err = WriteECCKeysToFile(privateKey, publicKey, publicKeyFile, privateKeyFile)
+	err = WriteECCKeysToFile(privateKey, publicKey, "ECC_private_key.pem", "ECC_public_key.pem")
 	if err != nil {
 		fmt.Println("Error writing ECC keys to files:", err)
 		return
 	}
-
-	// Read message from file
+}
+func ECCsignWithPrivateKey(messageFile string, privateKeyFile string) {
 	message, err := ioutil.ReadFile(messageFile)
 	if err != nil {
 		fmt.Println("Error reading message from file:", err)
+		return
+	}
+	privateKey, err := ReadECCPrivateKeyFromFile(privateKeyFile)
+	if err != nil {
+		fmt.Println("Error reading private key from file:", err)
 		return
 	}
 
@@ -89,20 +140,35 @@ func InitECC(messageFile, publicKeyFile, privateKeyFile, signatureFile string) {
 		fmt.Println("Error signing message:", err)
 		return
 	}
-
 	// Write signature to file
-	err = ioutil.WriteFile(signatureFile, signature, 0644)
+	err = ioutil.WriteFile("ECC_signed_message.dat", signature, 0644)
 	if err != nil {
 		fmt.Println("Error writing signature to file:", err)
 		return
 	}
-	fmt.Println("Signature written to file:", signatureFile)
-
+	fmt.Println("Signature written to file:", "ECC_signed_message.dat")
+}
+func ECCverifyWithPublicKey(messageFile string, publicKeyFile string, signatureFile string) {
+	message, err := ioutil.ReadFile(messageFile)
+	if err != nil {
+		fmt.Println("Error reading message from file:", err)
+		return
+	}
+	publicKey, err := ReadECCPublicKeyFromFile(publicKeyFile)
+	if err != nil {
+		fmt.Println("Error reading public key from file:", err)
+		return
+	}
+	signature, err := ioutil.ReadFile(signatureFile)
+	if err != nil {
+		fmt.Println("Error reading signature from file:", err)
+		return
+	}
 	// Verify signature
 	valid := VerifySignatureWithECC(publicKey, message, signature)
 	if valid {
-		fmt.Println("Signature is valid.")
+		fmt.Println("Signature is VALID.")
 	} else {
-		fmt.Println("Signature is invalid.")
+		fmt.Println("Signature is INVALID.")
 	}
 }
