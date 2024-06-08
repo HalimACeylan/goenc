@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	asymmetric "github.com/HalimACeylan/goenc/cyrpto_algorithms/asymmetrics"
+	symmetric "github.com/HalimACeylan/goenc/cyrpto_algorithms/symmetrics"
 )
 
 func main() {
@@ -87,6 +88,8 @@ func performOperation(algorithmType, algo, operation, key, file, message, signat
 				asymmetric.ElgamalEncryptMessageFromPublicKey(file, key)
 			} else if algo == "rsa" {
 				asymmetric.EncryptFileRSA(file, key)
+			} else if algo == "aes" {
+				symmetric.AESEncryptFile(file, key)
 			} else {
 				fmt.Println("Invalid algorithm. Please choose ecc, rsa, or elgamal")
 			}
@@ -109,6 +112,8 @@ func performOperation(algorithmType, algo, operation, key, file, message, signat
 				asymmetric.ElgamalDecryptMessageWithPrivateKey(file, key)
 			} else if algo == "rsa" {
 				asymmetric.DecryptFileRSA(file, key)
+			} else if algo == "aes" {
+				symmetric.AESDecryptFile(file, key)
 			} else {
 				fmt.Println("Invalid algorithm. Please choose ecc, rsa, or elgamal")
 			}
@@ -123,6 +128,8 @@ func performOperation(algorithmType, algo, operation, key, file, message, signat
 			asymmetric.ElgamalGenerateKeys()
 		} else if algo == "rsa" {
 			asymmetric.GenerateRSAKeyPairFiles()
+		} else if algo == "aes" {
+			symmetric.GenerateAESKeyFiles()
 		} else {
 			fmt.Println("Invalid algorithm. Please choose ecc, rsa, or elgamal")
 		}

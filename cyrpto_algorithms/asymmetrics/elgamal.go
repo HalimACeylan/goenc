@@ -266,7 +266,7 @@ func ElgamalEncryptMessageFromPublicKey(inputeFile, publicKeyFile string) {
 	}
 	message, err := ReadStringFromFile(inputeFile)
 	if err != nil {
-		fmt.Errorf("error reading message from file: %v", err)
+		fmt.Printf("error reading message from file: %v", err)
 		return
 	}
 	messageInt := new(big.Int).SetBytes([]byte(message))

@@ -1,17 +1,95 @@
 package symmetric
 
 import (
-	"crypto/aes"
+	cryptoAES "crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io"
-	"os"
+	"io/ioutil"
+	"log"
 )
 
-// GenerateAESKey generates a new AES key of the specified length.
+// AES struct to hold AES related fields
+type AES struct {
+	publicKey cipher.Block
+	mode      cipher.AEAD
+	nonce     []byte
+}
+
+// SetPublicKey sets the AES public key
+func (aes *AES) SetPublicKey(key []byte) {
+	var err error
+	aes.publicKey, err = cryptoAES.NewCipher(key)
+	if err != nil {
+		log.Fatalf("Error during the Public Key Generating reason: %s", err.Error())
+	}
+}
+
+// selectMode selects the AES mode
+func (aes *AES) selectMode() {
+	var err error
+	aes.mode, err = cipher.NewGCM(aes.publicKey)
+	if err != nil {
+		log.Fatalf("Error during the Selecting AES Mode reason: %s", err.Error())
+	}
+}
+
+// createNonce creates a nonce
+func (aes *AES) createNonce() {
+	aes.nonce = make([]byte, aes.mode.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, aes.nonce); err != nil {
+		log.Fatalf("Error during the generating AES Nonce reason: %s", err)
+	}
+}
+
+// EncryptAES encrypts the plaintext
+func (aes *AES) EncryptAES(plaintext []byte) []byte {
+	aes.selectMode()
+	aes.createNonce()
+	return aes.mode.Seal(aes.nonce, aes.nonce, plaintext, nil)
+}
+
+// DecryptAES decrypts the ciphertext
+func (aes *AES) DecryptAES(ciphertext []byte) ([]byte, error) {
+	aes.selectMode()
+	nonceSize := aes.mode.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	plaintext, err := aes.mode.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error during decryption: %s", err.Error())
+	}
+	return plaintext, nil
+}
+
+func AESWriteKeyToFile(key []byte, filename string) error {
+	encodedKey := base64.StdEncoding.EncodeToString(key)
+	return ioutil.WriteFile(filename, []byte(encodedKey), 0644)
+}
+
+// ReadKeyFromFile reads the AES key from a file and decodes it from base64
+func AESReadKeyFromFile(filename string) ([]byte, error) {
+	encodedKey, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("error reading AES key from file: %v", err)
+	}
+	key, err := base64.StdEncoding.DecodeString(string(encodedKey))
+	if err != nil {
+		return nil, fmt.Errorf("error decoding AES key from base64: %v", err)
+	}
+	return key, nil
+}
+
+// GenerateAESKey generates a new AES key of the specified length
 func GenerateAESKey(length int) ([]byte, error) {
+	if length != 16 && length != 24 && length != 32 {
+		return nil, fmt.Errorf("invalid key size %d: must be 16, 24, or 32 bytes", length)
+	}
 	key := make([]byte, length)
 	if _, err := rand.Read(key); err != nil {
 		return nil, err
@@ -19,117 +97,74 @@ func GenerateAESKey(length int) ([]byte, error) {
 	return key, nil
 }
 
-// EncryptAES encrypts plaintext using AES-GCM.
-func EncryptAES(key, plaintext []byte) (string, error) {
-	block, err := aes.NewCipher(key)
+// ReadFromFile reads data from a file
+func ReadFromFile(filename string) ([]byte, error) {
+	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("error reading file: %v", err)
 	}
-
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	nonce := make([]byte, aesGCM.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-
-	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
-	return base64.StdEncoding.EncodeToString(ciphertext), nil
+	return data, nil
 }
 
-// DecryptAES decrypts ciphertext using AES-GCM.
-func DecryptAES(key []byte, encodedCiphertext string) (string, error) {
-	ciphertext, err := base64.StdEncoding.DecodeString(encodedCiphertext)
+// GenerateAESKeyFiles generates an AES key and writes it to a file
+func GenerateAESKeyFiles() error {
+	key, err := GenerateAESKey(32)
 	if err != nil {
-		return "", err
+		return err
 	}
-
-	block, err := aes.NewCipher(key)
+	fmt.Println("AES key (base64):", base64.StdEncoding.EncodeToString(key))
+	err = AESWriteKeyToFile(key, "AES_key.txt")
 	if err != nil {
-		return "", err
+		return err
 	}
-
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	nonceSize := aesGCM.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return "", fmt.Errorf("ciphertext too short")
-	}
-
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return string(plaintext), nil
+	fmt.Println("AES key generation complete")
+	return nil
 }
 
-func InitAES(messageFile, KeyFile string) {
-	// Generate a new AES key
-	key, err := GenerateAESKey(32) // 256-bit key
+// AESEncryptFile encrypts the contents of a file using AES
+func AESEncryptFile(inputFile, keyFile string) error {
+	key, err := AESReadKeyFromFile(keyFile)
 	if err != nil {
-		fmt.Println("Error generating AES key:", err)
-		return
+		fmt.Printf("error reading AES key from file: %v", err)
 	}
 
-	// Save the key to a file
-	err = WriteKeyToFile(key, KeyFile)
+	plaintext, err := ReadFromFile(inputFile)
 	if err != nil {
-		fmt.Println("Error writing AES key to file:", err)
-		return
+		return fmt.Errorf("error reading message from file: %v", err)
 	}
 
-	// Read the key from the file
-	key, err = ReadKeyFromFile(KeyFile)
+	aes := AES{}
+	aes.SetPublicKey(key)
+	encryptedText := aes.EncryptAES(plaintext)
+
+	err = ioutil.WriteFile("AES_enc_message.txt", encryptedText, 0644)
 	if err != nil {
-		fmt.Println("Error reading AES key from file:", err)
-		return
+		return fmt.Errorf("error writing encrypted data to file: %v", err)
 	}
 
-	// Encrypt a message
-	message, err := os.ReadFile(messageFile)
-	if err != nil {
-		fmt.Println("Error reading message file:", err)
-		return
-	}
-	encryptedMessage, err := EncryptAES(key, message)
-	if err != nil {
-		fmt.Println("Error encrypting message:", err)
-		return
-	}
-	fmt.Println("Encrypted Message:", encryptedMessage)
+	return nil
+}
 
-	// Decrypt the message
-	decryptedMessage, err := DecryptAES(key, encryptedMessage)
+// AESDecryptFile decrypts the contents of a file using AES
+func AESDecryptFile(inputFile, keyFile string) error {
+	key, err := AESReadKeyFromFile(keyFile)
 	if err != nil {
-		fmt.Println("Error decrypting message:", err)
-		return
+		return fmt.Errorf("error reading AES key from file: %v", err)
 	}
-	fmt.Println("Decrypted Message:", decryptedMessage)
 
-	// Encrypt a file
-	inputFile := messageFile
-	encryptedFile := "message.enc"
-	err = EncryptFile(key, inputFile, encryptedFile)
+	encryptedText, err := ReadFromFile(inputFile)
 	if err != nil {
-		fmt.Println("Error encrypting file:", err)
-		return
+		return fmt.Errorf("error reading encrypted data from file: %v", err)
 	}
-	fmt.Println("File encrypted successfully")
 
-	// Decrypt the file
-	decryptedFile := "message.dec"
-	err = DecryptFile(key, encryptedFile, decryptedFile)
+	aes := AES{}
+	aes.SetPublicKey(key)
+	decryptedText, err := aes.DecryptAES(encryptedText)
 	if err != nil {
-		fmt.Println("Error decrypting file:", err)
-		return
+		return fmt.Errorf("error decrypting file: %v", err)
 	}
-	fmt.Println("File decrypted successfully")
+
+	fmt.Printf("Decrypted message: %s\n", decryptedText)
+
+	return nil
 }
