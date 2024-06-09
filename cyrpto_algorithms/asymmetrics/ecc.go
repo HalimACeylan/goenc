@@ -37,7 +37,7 @@ func WriteECCKeysToFile(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey
 		return err
 	}
 	privateKeyBlock := &pem.Block{
-		Type:  "EC PRIVATE KEY",
+		Type:  "ECC PRIVATE KEY",
 		Bytes: privateKeyBytes,
 	}
 	if err := ioutil.WriteFile(privateKeyFile, pem.EncodeToMemory(privateKeyBlock), 0644); err != nil {
