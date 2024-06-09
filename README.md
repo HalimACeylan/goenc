@@ -6,17 +6,28 @@ Encryption Software which supports existing algorithms with GO
 
 The goal was to write a tool in Golang that Supports Modern Encryption Algorithms.
 Supported Methods: Hashing, Symmetric Encryption, Asymmetric Encryption
-Supported Algorithms: MD5, SHA-256, SHA-512, AS-128 , AES, BLOWFISH, ElGamal,ECC RSA
+Supported Algorithms: MD5, SHA-1, SHA-256, SHA-512, AS-128 , AES, BLOWFISH, ElGamal,ECC, RSA
  
 
-# installation from source code
-go build goenc.go
+# Installation from source code
+go build goenc.go 
+
 ./goenc 
 
+# Usage of flags
+- `-asymmetric` is the flag for the use of asymmetric encryption
+- `-symmetric` is the flag for the use of symmetric encryption
+- `-hash` is the flag for use of hashing
+- `-algorithm` is for which algorithm will be used such as "sha1" or "aes" depending on the encryption type
+- `-operation` is for "encryption", "decryption" or "generate"
+- `-f` is for the input file it may be an encrypted file or plain text
+- `-key` depends on your operation, and algorithm it can be a private, public key, or binary key for symmetric encryption
+- `-sig` is you signed a document with "ecc" encryption you can validate the signature of the document with a signature file
 # Algorithms
 
 ## Hashing
 - [x] MD5
+- [x] SHA-1
 - [x] SHA-256
 - [x] SHA-512
 
