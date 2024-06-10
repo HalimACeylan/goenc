@@ -38,3 +38,12 @@ go build goenc.go
 ## Symmetric Encryption
 - [X] AES
 - [x] Blowfish
+
+# Implementation 
+
+## Asymmetric 
+
+https://github.com/HalimACeylan/goenc/assets/64225727/95efc83b-8ed1-42e6-a1c5-ab70c4eec65f
+
+
+
