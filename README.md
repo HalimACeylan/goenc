@@ -49,7 +49,9 @@ https://github.com/HalimACeylan/goenc/assets/64225727/95efc83b-8ed1-42e6-a1c5-ab
 
 https://github.com/HalimACeylan/goenc/assets/64225727/cabd967a-396a-4ba8-9f34-9721a8c16bf7
 
+## Hashing 
 
+https://github.com/HalimACeylan/goenc/assets/64225727/f7d4fed0-8459-48c4-92d6-d3839d9c737c
 
 
 
