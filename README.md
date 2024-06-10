@@ -45,5 +45,12 @@ go build goenc.go
 
 https://github.com/HalimACeylan/goenc/assets/64225727/95efc83b-8ed1-42e6-a1c5-ab70c4eec65f
 
+## Symmetric 
+
+https://github.com/HalimACeylan/goenc/assets/64225727/cabd967a-396a-4ba8-9f34-9721a8c16bf7
+
+
+
+
 
 
