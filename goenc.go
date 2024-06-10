@@ -84,7 +84,7 @@ func performOperation(algorithmType, algo, operation, key, file, message, signat
 				fmt.Println("Message to encrypt:", message)
 			}
 			if algo == "ecc" {
-				asymmetric.ECCsignWithPrivateKey(file, key)
+				//asymmetric.ECCsignWithPrivateKey(file, key)
 			} else if algo == "elgamal" {
 				asymmetric.ElgamalEncryptMessageFromPublicKey(file, key)
 			} else if algo == "rsa" {
@@ -128,7 +128,7 @@ func performOperation(algorithmType, algo, operation, key, file, message, signat
 	case "generate":
 		fmt.Println("Generating keys for", algo, "algorithm")
 		if algo == "ecc" {
-			//
+			asymmetric.ECCgenerateKeys()
 		} else if algo == "elgamal" {
 			asymmetric.ElgamalGenerateKeys()
 		} else if algo == "rsa" {
