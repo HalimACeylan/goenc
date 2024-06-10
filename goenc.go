@@ -110,7 +110,7 @@ func performOperation(algorithmType, algo, operation, key, file, message, signat
 				fmt.Println("Message to decrypt:", message)
 			}
 			if (algo == "ecc") && (signature != "") {
-				asymmetric.ECCverifyWithPublicKey(file, key, signature)
+				//
 			} else if algo == "elgamal" {
 				asymmetric.ElgamalDecryptMessageWithPrivateKey(file, key)
 			} else if algo == "rsa" {
@@ -128,7 +128,7 @@ func performOperation(algorithmType, algo, operation, key, file, message, signat
 	case "generate":
 		fmt.Println("Generating keys for", algo, "algorithm")
 		if algo == "ecc" {
-			asymmetric.ECCgenerateKeys()
+			//
 		} else if algo == "elgamal" {
 			asymmetric.ElgamalGenerateKeys()
 		} else if algo == "rsa" {
@@ -139,6 +139,18 @@ func performOperation(algorithmType, algo, operation, key, file, message, signat
 			symmetric.GenerateBlowfishKeyFiles()
 		} else {
 			fmt.Println("Invalid algorithm. Please choose ecc, rsa, or elgamal")
+		}
+	case "sign":
+		if algo == "ecc" {
+			asymmetric.ECCsignWithPrivateKey(file, key)
+		} else {
+			fmt.Println("Invalid algorithm. Please choose ecc")
+		}
+	case "verify":
+		if algo == "ecc" {
+			asymmetric.ECCverifyWithPublicKey(file, key, signature)
+		} else {
+			fmt.Println("Invalid algorithm. Please choose ecc")
 		}
 	default:
 		fmt.Println("Invalid operation. Please choose encrypt, decrypt, or generate")
