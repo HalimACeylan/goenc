@@ -19,7 +19,7 @@ go build goenc.go
 - `-symmetric` is the flag for the use of symmetric encryption
 - `-hash` is the flag for use of hashing
 - `-algorithm` is for which algorithm will be used such as "sha1" or "aes" depending on the encryption type
-- `-operation` is for "encryption", "decryption" or "generate"
+- `-operation` is for "encryption", "decryption", "generate", "sign" for only ecc sign a document, "verify" for only ecc for verifying the signature
 - `-f` is for the input file it may be an encrypted file or plain text
 - `-key` depends on your operation, and algorithm it can be a private, public key, or binary key for symmetric encryption
 - `-sig` is you signed a document with "ecc" encryption you can validate the signature of the document with a signature file
